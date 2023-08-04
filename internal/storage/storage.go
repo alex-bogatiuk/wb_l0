@@ -126,14 +126,6 @@ func (oss *OrderStorageService) SaveOrder(data []byte) error {
 	return err
 }
 
-//func (dbService *DBService) SaveOrderDB(jsonData *model.DataItem) (sql.Result, error) {
-//	result, err := dbService.db.Exec(`insert into orders (id, orderdata) values ($1, $2)`, jsonData.ID, jsonData.OrderData)
-//	if err != nil {
-//		log.Println("New data in database stored: ", jsonData)
-//	}
-//	return result, err
-//}
-
 func (oss *OrderStorageService) FillOrderStoreCache() error {
 
 	var count int
