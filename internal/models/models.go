@@ -29,7 +29,7 @@ type Delivery struct {
 }
 type Payment struct {
 	Amount       int    `json:"amount" validate:"required"`
-	PaymentDt    int    `json:"payment_dt" validate:"required" validate:"required"`
+	PaymentDt    int    `json:"payment_dt" validate:"required"`
 	DeliveryCost int    `json:"delivery_cost" validate:"required"`
 	GoodsTotal   int    `json:"goods_total" validate:"required"`
 	CustomFee    int    `json:"custom_fee"`
