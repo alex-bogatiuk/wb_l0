@@ -39,7 +39,6 @@ func main() {
 	// Connecting to NATS Streaming serv
 	natsSub := sub.CreateSub(*OrderStoreService)
 	err = natsSub.Connect("test-cluster", "client-2", nats.DefaultURL)
-	//natsSub.nc, err := stan.Connect("test-cluster", "client-2", stan.NatsURL(nats.DefaultURL))
 	if err != nil {
 		slog.Fatal("error connecting to NATS Streaming:", err)
 		panic(err)
@@ -58,9 +57,11 @@ func main() {
 	srv := new(server.Server)
 	if err := srv.Run(cfg.Port, handlers.InitRoutes()); err != nil {
 		slog.Fatal("Error starting http server:", err)
-		panic(err)
 	}
-	////////////////////
+
+	// If API falls in error service should work
+	select {}
+	// Part from stan doc
 	// Unsubscribe
 	//sub.Unsubscribe()
 	// Close connection
