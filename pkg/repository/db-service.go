@@ -1,13 +1,12 @@
 package repo
 
 import (
-	_ "context"
+	"github.com/gookit/slog"
 	"github.com/ilyakaznacheev/cleanenv"
-	_ "github.com/jackc/pgx/v5"
 )
 
 type Config struct {
-	DBProvider string `yaml:"db_provider"`
+	DBProvider string `yaml:"dbProvider"`
 	Host       string `yaml:"host"`
 	Basename   string `yaml:"basename"`
 	Username   string `yaml:"username"`
@@ -16,12 +15,13 @@ type Config struct {
 }
 
 func InitConfig() (*Config, error) {
-
 	var cfg Config
 
 	// Read configuration file. Settings from the ...\configs\cfg.yml file
 	err := cleanenv.ReadConfig("configs/cfg.yml", &cfg)
 	if err != nil {
+		slog.Error("cfg file reading error")
+
 		return &cfg, err
 	}
 

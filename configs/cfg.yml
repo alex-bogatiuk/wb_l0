@@ -2,7 +2,7 @@
 port: "8000"
 
 #Postgres conn settings
-db_provider: "postgres"
+dbProvider: "postgres"
 host: "localhost:5432"
 basename: "wb_l0"
 username: "postgres"

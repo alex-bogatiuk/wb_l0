@@ -3,7 +3,6 @@ package storage
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/alex-bogatiuk/wb_l0/internal/cache"
 	"github.com/alex-bogatiuk/wb_l0/internal/models"
 	valid "github.com/alex-bogatiuk/wb_l0/internal/validator"
@@ -21,23 +20,27 @@ type DBConn struct {
 //}
 
 type OrderStorageService struct {
-	cache cache.OrderCacheStorage
+	Cache cache.OrderCacheStorage
 	db    DBConn
 }
 
 func NewPostgresConn(cfg *repo.Config) (*DBConn, error) {
 	// urlExample := "postgres://username:password@localhost:5432/database_name"
 	//conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
-	DBConn := DBConn{}
+	DBConn := DBConn{db: nil}
 
 	var err error
 	DBConn.db, err = pgx.Connect(context.Background(), "postgres://"+cfg.Username+":"+cfg.Password+"@"+cfg.Host+"/"+cfg.Basename)
 	if err != nil {
+		slog.Error("db connection error:", err)
+
 		return nil, err
 	}
 
 	err = DBConn.db.Ping(context.Background())
 	if err != nil {
+		slog.Error("db ping error:", err)
+
 		return nil, err
 	}
 
@@ -46,9 +49,10 @@ func NewPostgresConn(cfg *repo.Config) (*DBConn, error) {
 
 func OrderStorageInit(cache cache.OrderCacheStorage, db DBConn) *OrderStorageService {
 	OrderStorageService := OrderStorageService{
-		cache: cache,
+		Cache: cache,
 		db:    db,
 	}
+
 	return &OrderStorageService
 }
 
@@ -57,18 +61,22 @@ func (oss *OrderStorageService) SaveOrder(data []byte) error {
 	err := json.Unmarshal(data, &newOrder)
 	if err != nil {
 		slog.Error("JSON unmarshal error:", err)
+
 		return err
 	}
 
 	err = valid.ValidateOrderStruct(newOrder)
 	if err != nil {
 		slog.Error("JSON validator error:", err)
+
 		return err
 	}
 
 	// Insert
 	tx, err := oss.db.db.Begin(context.Background())
 	if err != nil {
+		slog.Error("transaction begin error:", err)
+
 		return err
 	}
 	// Rollback is safe to call even if the tx is already closed, so if
@@ -82,6 +90,7 @@ func (oss *OrderStorageService) SaveOrder(data []byte) error {
 		newOrder.OrderUID, newOrder.TrackNumber, newOrder.Entry, newOrder.Locale, newOrder.InternalSignature, newOrder.CustomerID,
 		newOrder.DeliveryService, newOrder.Shardkey, newOrder.SmID, newOrder.DateCreated, newOrder.OofShard)
 	if err != nil {
+		slog.Error("transaction exec error: order_uid", newOrder.OrderUID, err)
 		return err
 	}
 
@@ -91,6 +100,7 @@ func (oss *OrderStorageService) SaveOrder(data []byte) error {
 		newOrder.OrderUID, newOrder.Delivery.Name, newOrder.Delivery.Phone, newOrder.Delivery.Zip, newOrder.Delivery.City,
 		newOrder.Delivery.Address, newOrder.Delivery.Region, newOrder.Delivery.Email)
 	if err != nil {
+		slog.Error("transaction exec error: order_uid", newOrder.OrderUID, err)
 		return err
 	}
 
@@ -102,6 +112,7 @@ func (oss *OrderStorageService) SaveOrder(data []byte) error {
 		newOrder.Payment.Provider, newOrder.Payment.Amount, newOrder.Payment.PaymentDt, newOrder.Payment.Bank,
 		newOrder.Payment.DeliveryCost, newOrder.Payment.GoodsTotal, newOrder.Payment.CustomFee)
 	if err != nil {
+		slog.Error("transaction exec error: order_uid", newOrder.OrderUID, err)
 		return err
 	}
 
@@ -112,16 +123,18 @@ func (oss *OrderStorageService) SaveOrder(data []byte) error {
 			newOrder.OrderUID, item.ChrtID, item.TrackNumber, item.Price, item.Rid, item.Name, item.Sale, item.Size, item.TotalPrice,
 			item.NmID, item.Brand, item.Status)
 		if err != nil {
+			slog.Error("transaction exec error: order_uid", newOrder.OrderUID, err)
 			return err
 		}
 	}
 
 	err = tx.Commit(context.Background())
 	if err != nil {
+		slog.Error("transaction commit error: order_uid", newOrder.OrderUID, err)
 		return err
 	}
 
-	oss.cache.AddToCache(*newOrder)
+	oss.Cache.AddToCache(*newOrder)
 
 	return err
 }
@@ -183,10 +196,12 @@ func (oss *OrderStorageService) FillOrderStoreCache() error {
 	defer rows.Close()
 
 	// Iterate through the result set
+
 	var orderRow models.Order
 
 	for rows.Next() {
 		var orderRowCurrent models.Order
+
 		var itemRow models.Item
 
 		err := rows.Scan(&orderRowCurrent.OrderUID, &orderRowCurrent.TrackNumber, &orderRowCurrent.Entry, &orderRowCurrent.Locale, &orderRowCurrent.InternalSignature, &orderRowCurrent.CustomerID, &orderRowCurrent.DeliveryService, &orderRowCurrent.Shardkey, &orderRowCurrent.SmID, &orderRowCurrent.DateCreated, &orderRowCurrent.OofShard, &orderRowCurrent.Delivery.Name, &orderRowCurrent.Delivery.Phone, &orderRowCurrent.Delivery.Zip, &orderRowCurrent.Delivery.City, &orderRowCurrent.Delivery.Address, &orderRowCurrent.Delivery.Region, &orderRowCurrent.Delivery.Email, &itemRow.ChrtID, &itemRow.TrackNumber, &itemRow.Price, &itemRow.Rid, &itemRow.Name, &itemRow.Sale, &itemRow.Size, &itemRow.TotalPrice, &itemRow.NmID, &itemRow.Brand, &itemRow.Status, &orderRowCurrent.Payment.Transaction, &orderRowCurrent.Payment.RequestID, &orderRowCurrent.Payment.Currency, &orderRowCurrent.Payment.Provider, &orderRowCurrent.Payment.Amount, &orderRowCurrent.Payment.PaymentDt, &orderRowCurrent.Payment.Bank, &orderRowCurrent.Payment.DeliveryCost, &orderRowCurrent.Payment.GoodsTotal, &orderRowCurrent.Payment.CustomFee)
@@ -198,29 +213,29 @@ func (oss *OrderStorageService) FillOrderStoreCache() error {
 		if orderRow.OrderUID == "" {
 			orderRow = orderRowCurrent
 			orderRow.Items = append(orderRow.Items, itemRow)
+
 			continue
 		}
 
 		if orderRow.OrderUID != orderRowCurrent.OrderUID {
-			oss.cache.AddToCache(orderRow)
+			oss.Cache.AddToCache(orderRow)
 			orderRow = orderRowCurrent
 			orderRow.Items = append(orderRow.Items, itemRow)
 		} else {
 			orderRow.Items = append(orderRow.Items, itemRow)
 		}
-
 	}
 
 	// Add last row
-	oss.cache.AddToCache(orderRow)
+	oss.Cache.AddToCache(orderRow)
 
 	// rows is closed automatically when rows.Next() returns false so it is not necessary to manually close rows.
 	// The first error encountered by the original Query call, rows.Next or rows.Scan will be returned here.
 	if rows.Err() != nil {
-		fmt.Printf("rows error: %v", rows.Err())
+		slog.Error("row reading error", rows.Err())
+
 		return rows.Err()
 	}
 
 	return err
-
 }

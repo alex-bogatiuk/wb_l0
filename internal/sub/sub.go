@@ -19,18 +19,22 @@ func CreateSub(oss storage.OrderStorageService) *NatsSub {
 	return &sc
 }
 
-func (nSub *NatsSub) Connect(clusterID string, clientID string, URL string) error {
-	nc, err := stan.Connect(clusterID, clientID, stan.NatsURL(URL))
+func (nSub *NatsSub) Connect(clusterID string, clientID string, url string) error {
+	nc, err := stan.Connect(clusterID, clientID, stan.NatsURL(url))
 	if err != nil {
 		return err
 	}
+
 	nSub.Nc = nc
+
 	return err
 }
 
 func (nSub *NatsSub) Close() {
 	if nSub.Nc != nil {
+
 		nSub.Nc.Close()
+
 	}
 }
 
@@ -47,6 +51,5 @@ func (nSub *NatsSub) SaveOrderHandler(msg *stan.Msg) {
 	err := nSub.Ss.SaveOrder(msg.Data)
 	if err != nil {
 		slog.Error("save order data error:", err)
-
 	}
 }

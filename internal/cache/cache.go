@@ -1,8 +1,6 @@
 package cache
 
-import (
-	"github.com/alex-bogatiuk/wb_l0/internal/models"
-)
+import "github.com/alex-bogatiuk/wb_l0/internal/models"
 
 type OrderCache map[string]models.Order
 
@@ -15,13 +13,14 @@ func OrderCacheInit() *OrderCacheStorage {
 	OrderCacheStorage := OrderCacheStorage{
 		cache: cache,
 	}
+
 	return &OrderCacheStorage
 }
 
-func (OrderCacheStorage *OrderCacheStorage) AddToCache(data models.Order) {
-	OrderCacheStorage.cache[data.OrderUID] = data
+func (orderCacheStorage *OrderCacheStorage) AddToCache(data models.Order) {
+	orderCacheStorage.cache[data.OrderUID] = data
 }
 
-func (OrderCacheStorage *OrderCacheStorage) GetOrderFromCache(orderUID string) models.Order {
-	return OrderCacheStorage.cache[orderUID]
+func (orderCacheStorage *OrderCacheStorage) GetOrderFromCache(orderUID string) models.Order {
+	return orderCacheStorage.cache[orderUID]
 }
